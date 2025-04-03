@@ -160,7 +160,6 @@ class ChartRestApi(BaseSupersetModelRestApi):
         "edit_url",
         "form_data",
         "id",
-        "uuid",
         "last_saved_at",
         "last_saved_by.id",
         "last_saved_by.first_name",
