@@ -1056,6 +1056,10 @@ class TestChartApi(ApiOwnersTestCaseMixin, InsertChartMixin, SupersetTestCase):
                 "thumbnail_url",
                 "url",
                 "datasource_id",
+                "datasource_name_text",
+                "datasource_type",
+                "datasource_url",
+                "datasource_uui",
             ):
                 assert value == expected_result[key]
         db.session.delete(chart)
