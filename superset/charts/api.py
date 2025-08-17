@@ -272,7 +272,7 @@ class ChartRestApi(BaseSupersetModelRestApi):
         action=lambda self, *args, **kwargs: f"{self.__class__.__name__}.get",
         log_to_statsd=False,
     )
-    def get(self, pk: str) -> Response:
+    def get(self, id_or_uuid: str) -> Response:
         """Gets a chart
         ---
         get:
@@ -305,7 +305,7 @@ class ChartRestApi(BaseSupersetModelRestApi):
         """
         # pylint: disable=arguments-differ
         try:
-            dash = ChartDAO.get_by_id_or_uuid(pk)
+            dash = ChartDAO.get_by_id_or_uuid(id_or_uuid)
             result = self.chart_get_response_schema.dump(dash)
             return self.response(200, result=result)
         except ChartNotFoundError:
