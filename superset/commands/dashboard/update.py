@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 
 
 class UpdateDashboardCommand(UpdateMixin, BaseCommand):
-    def __init__(self, model_id: int, data: dict[str, Any]):
+    def __init__(self, model_id: str, data: dict[str, Any]):
         self._model_id = model_id
         self._properties = data.copy()
         self._model: Optional[Dashboard] = None
@@ -77,10 +77,10 @@ class UpdateDashboardCommand(UpdateMixin, BaseCommand):
         owner_ids: Optional[list[int]] = self._properties.get("owners")
         roles_ids: Optional[list[int]] = self._properties.get("roles")
         slug: Optional[str] = self._properties.get("slug")
-        tag_ids: Optional[list[int]] = self._properties.get("tags")
+        tag_ids: Optional[list[str]] = self._properties.get("tags")
 
         # Validate/populate model exists
-        self._model = DashboardDAO.find_by_id(self._model_id)
+        self._model = DashboardDAO.find_by_id_or_uuid(self._model_id)
         if not self._model:
             raise DashboardNotFoundError()
         # Check ownership
@@ -208,7 +208,7 @@ class UpdateDashboardNativeFiltersCommand(UpdateDashboardCommand):
 
 class UpdateDashboardColorsConfigCommand(UpdateDashboardCommand):
     def __init__(
-        self, model_id: int, data: dict[str, Any], mark_updated: bool = True
+        self, model_id: str, data: dict[str, Any], mark_updated: bool = True
     ) -> None:
         super().__init__(model_id, data)
         self._mark_updated = mark_updated

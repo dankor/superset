@@ -25,7 +25,6 @@ from zipfile import is_zipfile, ZipFile
 
 from flask import request, Response, send_file
 from flask_appbuilder.api import expose, protect, rison, safe
-from flask_appbuilder.api.schemas import get_item_schema
 from flask_appbuilder.const import (
     API_RESULT_RES_KEY,
     API_SELECT_COLUMNS_RIS_KEY,
@@ -234,9 +233,11 @@ class DatasetRestApi(BaseSupersetModelRestApi):
         "order_by_choices",
         "verbose_map",
     ]
+
     add_model_schema = DatasetPostSchema()
     edit_model_schema = DatasetPutSchema()
     duplicate_model_schema = DatasetDuplicateSchema()
+    """
     add_columns = ["database", "catalog", "schema", "table_name", "sql", "owners"]
     edit_columns = [
         "table_name",
@@ -259,6 +260,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
         "metrics",
         "extra",
     ]
+    """
     openapi_spec_tag = "Datasets"
 
     base_related_field_filters = {
@@ -370,7 +372,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
             )
             return self.response_422(message=str(ex))
 
-    @expose("/<pk>", methods=("PUT",))
+    @expose("/<id_or_uuid>", methods=("PUT",))
     @protect()
     @statsd_metrics
     @event_logger.log_this_with_context(
@@ -378,7 +380,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
         log_to_statsd=False,
     )
     @requires_json
-    def put(self, pk: int) -> Response:
+    def put(self, id_or_uuid: str) -> Response:
         """Update a dataset.
         ---
         put:
@@ -386,8 +388,8 @@ class DatasetRestApi(BaseSupersetModelRestApi):
           parameters:
           - in: path
             schema:
-              type: integer
-            name: pk
+              type: string
+            name: id_or_uuid
           - in: query
             schema:
               type: boolean
@@ -435,9 +437,11 @@ class DatasetRestApi(BaseSupersetModelRestApi):
         except ValidationError as error:
             return self.response_400(message=error.messages)
         try:
-            changed_model = UpdateDatasetCommand(pk, item, override_columns).run()
+            changed_model = UpdateDatasetCommand(
+                id_or_uuid, item, override_columns
+            ).run()
             if override_columns:
-                RefreshDatasetCommand(pk).run()
+                RefreshDatasetCommand(id_or_uuid).run()
             response = self.response(200, id=changed_model.id, result=item)
         except DatasetNotFoundError:
             response = self.response_404()
@@ -647,7 +651,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
             )
             return self.response_422(message=str(ex))
 
-    @expose("/<pk>/refresh", methods=("PUT",))
+    @expose("/<id_or_uuid>/refresh", methods=("PUT",))
     @protect()
     @safe
     @statsd_metrics
@@ -655,7 +659,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
         action=lambda self, *args, **kwargs: f"{self.__class__.__name__}.refresh",
         log_to_statsd=False,
     )
-    def refresh(self, pk: int) -> Response:
+    def refresh(self, id_or_uuid: str) -> Response:
         """Refresh and update columns of a dataset.
         ---
         put:
@@ -663,8 +667,8 @@ class DatasetRestApi(BaseSupersetModelRestApi):
           parameters:
           - in: path
             schema:
-              type: integer
-            name: pk
+              type: string
+            name: id_or_uuid
           responses:
             200:
               description: Dataset delete
@@ -687,7 +691,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
               $ref: '#/components/responses/500'
         """
         try:
-            RefreshDatasetCommand(pk).run()
+            RefreshDatasetCommand(id_or_uuid).run()
             return self.response(200, message="OK")
         except DatasetNotFoundError:
             return self.response_404()
@@ -702,7 +706,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
             )
             return self.response_422(message=str(ex))
 
-    @expose("/<pk>/related_objects", methods=("GET",))
+    @expose("/<id_or_uuid>/related_objects", methods=("GET",))
     @protect()
     @safe
     @statsd_metrics
@@ -711,16 +715,16 @@ class DatasetRestApi(BaseSupersetModelRestApi):
         f".related_objects",
         log_to_statsd=False,
     )
-    def related_objects(self, pk: int) -> Response:
+    def related_objects(self, id_or_uuid: str) -> Response:
         """Get charts and dashboards count associated to a dataset.
         ---
         get:
           summary: Get charts and dashboards count associated to a dataset
           parameters:
           - in: path
-            name: pk
+            name: id_or_uuid
             schema:
-              type: integer
+              type: string
           responses:
             200:
             200:
@@ -736,10 +740,10 @@ class DatasetRestApi(BaseSupersetModelRestApi):
             500:
               $ref: '#/components/responses/500'
         """
-        dataset = DatasetDAO.find_by_id(pk)
+        dataset = DatasetDAO.find_by_id_or_uuid(id_or_uuid)
         if not dataset:
             return self.response_404()
-        data = DatasetDAO.get_related_objects(pk)
+        data = DatasetDAO.get_related_objects(id_or_uuid)
         charts = [
             {
                 "id": chart.id,
@@ -1081,17 +1085,17 @@ class DatasetRestApi(BaseSupersetModelRestApi):
         except CommandException as ex:
             return self.response(ex.status, message=ex.message)
 
-    @expose("/<int:pk>", methods=("GET",))
+    @expose("/<id_or_uuid>", methods=["GET"])
     @protect()
     @safe
-    @rison(get_item_schema)
+    # @rison(get_item_schema)
     @statsd_metrics
     @handle_api_exception
     @event_logger.log_this_with_context(
         action=lambda self, *args, **kwargs: f"{self.__class__.__name__}.get",
         log_to_statsd=False,
     )
-    def get(self, pk: int, **kwargs: Any) -> Response:
+    def get(self, id_or_uuid: str, **kwargs: Any) -> Response:
         """Get a dataset.
         ---
         get:
@@ -1100,9 +1104,9 @@ class DatasetRestApi(BaseSupersetModelRestApi):
           parameters:
           - in: path
             schema:
-              type: integer
-            description: The dataset ID
-            name: pk
+              type: string
+            description: Either the id of the dataset, or its uuid
+            name: id_or_uuid
           - in: query
             name: q
             content:
@@ -1128,7 +1132,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
                         description: The item id
                         type: string
                       result:
-                        $ref: '#/components/schemas/{{self.__class__.__name__}}.get'
+                        $ref: '#/components/schemas/DatasetGetSchema'
             400:
               $ref: '#/components/responses/400'
             401:
@@ -1138,32 +1142,22 @@ class DatasetRestApi(BaseSupersetModelRestApi):
             500:
               $ref: '#/components/responses/500'
         """
-        item: SqlaTable | None = self.datamodel.get(
-            pk,
-            self._base_filters,
-            self.show_select_columns,
-            self.show_outer_default_load,
-        )
-        if not item:
+        table = DatasetDAO.find_by_id_or_uuid(id_or_uuid)
+        if not table:
             return self.response_404()
 
+        result = self.show_model_schema.dump(table)
         response: dict[str, Any] = {}
         args = kwargs.get("rison", {})
         select_cols = args.get(API_SELECT_COLUMNS_RIS_KEY, [])
         pruned_select_cols = [col for col in select_cols if col in self.show_columns]
-        self.set_response_key_mappings(
-            response,
-            self.get,
-            args,
-            **{API_SELECT_COLUMNS_RIS_KEY: pruned_select_cols},
-        )
         if pruned_select_cols:
             show_model_schema = self.model2schemaconverter.convert(pruned_select_cols)
         else:
             show_model_schema = self.show_model_schema
 
-        response["id"] = pk
-        response[API_RESULT_RES_KEY] = show_model_schema.dump(item, many=False)
+        response["id"] = result["id"]
+        response[API_RESULT_RES_KEY] = show_model_schema.dump(table, many=False)
 
         # remove folders from resposne if `DATASET_FOLDERS` is disabled, so that it's
         # possible to inspect if the feature is supported or not
@@ -1175,12 +1169,13 @@ class DatasetRestApi(BaseSupersetModelRestApi):
 
         if parse_boolean_string(request.args.get("include_rendered_sql")):
             try:
-                processor = get_template_processor(database=item.database)
+                processor = get_template_processor(database=table.database)
                 response["result"] = self.render_dataset_fields(
                     response["result"], processor
                 )
             except SupersetTemplateException as ex:
                 return self.response_400(message=str(ex))
+
         return self.response(200, **response)
 
     @expose("/<int:pk>/drill_info/", methods=("GET",))
@@ -1194,7 +1189,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
         **kwargs: f"{self.__class__.__name__}.get_drill_info",
         log_to_statsd=False,
     )
-    def get_drill_info(self, pk: int, **kwargs: Any) -> Response:
+    def get_drill_info(self, id_or_uuid: str, **kwargs: Any) -> Response:
         """Get dataset drill info.
         ---
         get:
@@ -1202,7 +1197,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
           parameters:
           - in: path
             schema:
-              type: integer
+              type: string
             name: pk
             description: The dataset ID
           responses:
@@ -1246,7 +1241,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
 
         # First try with regular access
         dataset: SqlaTable | None = self.datamodel.get(
-            pk,
+            id_or_uuid,
             self._base_filters,
             drill_info_select_columns,
             self.show_outer_default_load,
@@ -1262,8 +1257,8 @@ class DatasetRestApi(BaseSupersetModelRestApi):
             return self.response_404()
 
         # Lazy load the dashboard and dataset for RBAC/embedded access check
-        dashboard = DashboardDAO.find_by_id(dashboard_id, skip_base_filter=True)
-        dataset_ = DatasetDAO.find_by_id(pk, skip_base_filter=True)
+        dashboard = DashboardDAO.find_by_id_or_uuid(dashboard_id, skip_base_filter=True)
+        dataset_ = DatasetDAO.find_by_id_or_uuid(id_or_uuid, skip_base_filter=True)
         if not (dashboard and dataset_):
             return self.response_404()
         if not security_manager.can_drill_dataset_via_dashboard_access(
@@ -1274,7 +1269,7 @@ class DatasetRestApi(BaseSupersetModelRestApi):
         # Load dataset again skipping base filters
         # We don't use `dataset_` to avoid lazy loading columns
         dataset = self.datamodel.get(
-            pk,
+            id_or_uuid,
             None,
             drill_info_select_columns,
             self.show_outer_default_load,

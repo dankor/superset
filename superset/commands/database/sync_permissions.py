@@ -59,7 +59,7 @@ class SyncPermissionsCommand(BaseCommand):
 
     def __init__(
         self,
-        model_id: int,
+        model_id: str,
         username: str | None,
         old_db_connection_name: str | None = None,
         db_connection: Database | None = None,
@@ -94,7 +94,7 @@ class SyncPermissionsCommand(BaseCommand):
         self._db_connection = (
             self._db_connection
             if self._db_connection
-            else DatabaseDAO.find_by_id(self.db_connection_id)
+            else DatabaseDAO.find_by_id_or_uuid(self.db_connection_id)
         )
         if not self._db_connection:
             raise DatabaseNotFoundError()
@@ -315,7 +315,7 @@ class SyncPermissionsCommand(BaseCommand):
 
 @celery_app.task(name="sync_database_permissions", soft_time_limit=600)
 def sync_database_permissions_task(
-    database_id: int, username: str, old_db_connection_name: str
+    database_id: str, username: str, old_db_connection_name: str
 ) -> None:
     """
     Celery task that triggers the SyncPermissionsCommand in async mode.
@@ -332,7 +332,7 @@ def sync_database_permissions_task(
                 user.id,
             )
 
-            db_connection = DatabaseDAO.find_by_id(database_id)
+            db_connection = DatabaseDAO.find_by_id_or_uuid(database_id)
             if not db_connection:
                 raise DatabaseNotFoundError()
             ssh_tunnel = DatabaseDAO.get_ssh_tunnel(database_id)

@@ -1167,7 +1167,7 @@ class QueryContextProcessor:
         # pylint: disable=import-outside-toplevel
         from superset.commands.chart.data.get_data_command import ChartDataCommand
 
-        if not (chart := ChartDAO.find_by_id(annotation_layer["value"])):
+        if not (chart := ChartDAO.find_by_id_or_uuid(annotation_layer["value"])):
             raise QueryObjectValidationError(
                 _(
                     f"""Chart with ID {annotation_layer["value"]} (referenced by

@@ -56,7 +56,7 @@ logger = logging.getLogger(__name__)
 class UpdateDatasetCommand(UpdateMixin, BaseCommand):
     def __init__(
         self,
-        model_id: int,
+        model_id: str,
         data: dict[str, Any],
         override_columns: Optional[bool] = False,
     ):
@@ -86,7 +86,7 @@ class UpdateDatasetCommand(UpdateMixin, BaseCommand):
         owner_ids: Optional[list[int]] = self._properties.get("owners")
 
         # Validate/populate model exists
-        self._model = DatasetDAO.find_by_id(self._model_id)
+        self._model = DatasetDAO.find_by_id_or_uuid(str(self._model_id))
         if not self._model:
             raise DatasetNotFoundError()
 

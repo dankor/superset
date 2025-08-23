@@ -53,14 +53,14 @@ logger = logging.getLogger(__name__)
 class UpdateDatabaseCommand(BaseCommand):
     _model: Database | None
 
-    def __init__(self, model_id: int, data: dict[str, Any]):
+    def __init__(self, model_id: str, data: dict[str, Any]):
         self._properties = data.copy()
         self._model_id = model_id
         self._model: Database | None = None
 
     @transaction(on_error=partial(on_error, reraise=DatabaseUpdateFailedError))
     def run(self) -> Model:
-        self._model = DatabaseDAO.find_by_id(self._model_id)
+        self._model = DatabaseDAO.find_by_id_or_uuid(self._model_id)
 
         if not self._model:
             raise DatabaseNotFoundError()

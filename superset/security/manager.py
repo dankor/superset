@@ -2687,7 +2687,9 @@ class SupersetSecurityManager(  # pylint: disable=too-many-public-methods
                 # TODO (embedded): remove this check once uuids are rolled out
                 dashboard = Dashboard.get(str(resource["id"]))
                 if not dashboard:
-                    embedded = EmbeddedDashboardDAO.find_by_id(str(resource["id"]))
+                    embedded = EmbeddedDashboardDAO.find_by_id_or_uuid(
+                        str(resource["id"])
+                    )
                     if not embedded:
                         raise EmbeddedDashboardNotFoundError()
 

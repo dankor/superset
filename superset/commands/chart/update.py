@@ -85,7 +85,7 @@ class UpdateChartCommand(UpdateMixin, BaseCommand):
                 exceptions.append(DatasourceTypeUpdateRequiredValidationError())
 
         # Validate/populate model exists
-        self._model = ChartDAO.find_by_id(self._model_id)
+        self._model = ChartDAO.find_by_id_or_uuid(self._model_id)
         if not self._model:
             raise ChartNotFoundError()
 

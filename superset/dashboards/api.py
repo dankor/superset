@@ -600,7 +600,7 @@ class DashboardRestApi(BaseSupersetModelRestApi):
             )
             return self.response_422(message=str(ex))
 
-    @expose("/<pk>", methods=("PUT",))
+    @expose("/<id_or_uuid>", methods=("PUT",))
     @protect()
     @safe
     @statsd_metrics
@@ -609,7 +609,7 @@ class DashboardRestApi(BaseSupersetModelRestApi):
         log_to_statsd=False,
     )
     @requires_json
-    def put(self, pk: int) -> Response:
+    def put(self, id_or_uuid: str) -> Response:
         """Update a dashboard.
         ---
         put:
@@ -617,8 +617,8 @@ class DashboardRestApi(BaseSupersetModelRestApi):
           parameters:
           - in: path
             schema:
-              type: integer
-            name: pk
+              type: string
+            name: id_or_uuid
           requestBody:
             description: Dashboard schema
             required: true
@@ -659,7 +659,7 @@ class DashboardRestApi(BaseSupersetModelRestApi):
         except ValidationError as error:
             return self.response_400(message=error.messages)
         try:
-            changed_model = UpdateDashboardCommand(pk, item).run()
+            changed_model = UpdateDashboardCommand(id_or_uuid, item).run()
             last_modified_time = changed_model.changed_on.replace(
                 microsecond=0
             ).timestamp()
@@ -687,7 +687,7 @@ class DashboardRestApi(BaseSupersetModelRestApi):
             response = self.response_422(message=str(ex))
         return response
 
-    @expose("/<pk>/filters", methods=("PUT",))
+    @expose("/<id_or_uuid>/filters", methods=("PUT",))
     @protect()
     @safe
     @statsd_metrics
@@ -696,7 +696,7 @@ class DashboardRestApi(BaseSupersetModelRestApi):
         log_to_statsd=False,
     )
     @requires_json
-    def put_filters(self, pk: int) -> Response:
+    def put_filters(self, id_or_uuid: str) -> Response:
         """
         Modify native filters configuration for a dashboard.
         ---
@@ -743,7 +743,7 @@ class DashboardRestApi(BaseSupersetModelRestApi):
             return self.response_400(message=error.messages)
 
         try:
-            configuration = UpdateDashboardNativeFiltersCommand(pk, item).run()
+            configuration = UpdateDashboardNativeFiltersCommand(id_or_uuid, item).run()
             response = self.response(
                 200,
                 result=configuration,
@@ -766,7 +766,7 @@ class DashboardRestApi(BaseSupersetModelRestApi):
             response = self.response_422(message=str(ex))
         return response
 
-    @expose("/<pk>/colors", methods=("PUT",))
+    @expose("/<id_or_uuid>/colors", methods=("PUT",))
     @protect()
     @safe
     @statsd_metrics
@@ -775,7 +775,7 @@ class DashboardRestApi(BaseSupersetModelRestApi):
         log_to_statsd=False,
     )
     @requires_json
-    def put_colors(self, pk: int) -> Response:
+    def put_colors(self, id_or_uuid: str) -> Response:
         """
         Modify colors configuration for a dashboard.
         ---
@@ -784,8 +784,8 @@ class DashboardRestApi(BaseSupersetModelRestApi):
           parameters:
           - in: path
             schema:
-              type: integer
-            name: pk
+              type: string
+            name: id_or_uuid
           - in: query
             name: mark_updated
             schema:
@@ -830,7 +830,7 @@ class DashboardRestApi(BaseSupersetModelRestApi):
             mark_updated = parse_boolean_string(
                 request.args.get("mark_updated", "true")
             )
-            UpdateDashboardColorsConfigCommand(pk, item, mark_updated).run()
+            UpdateDashboardColorsConfigCommand(id_or_uuid, item, mark_updated).run()
             response = self.response(200)
         except DashboardNotFoundError:
             response = self.response_404()

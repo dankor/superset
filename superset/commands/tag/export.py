@@ -73,7 +73,7 @@ class ExportTagsCommand:
             dashboards = [
                 dashboard
                 for dashboard in (
-                    DashboardDAO.find_by_id(dashboard_id)
+                    DashboardDAO.find_by_id_or_uuid(dashboard_id)
                     for dashboard_id in dashboard_ids
                 )
                 if dashboard is not None
@@ -96,7 +96,9 @@ class ExportTagsCommand:
 
             charts = [
                 chart
-                for chart in (ChartDAO.find_by_id(chart_id) for chart_id in chart_ids)
+                for chart in (
+                    ChartDAO.find_by_id_or_uuid(chart_id) for chart_id in chart_ids
+                )
                 if chart is not None
             ]
 

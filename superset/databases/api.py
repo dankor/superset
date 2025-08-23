@@ -319,10 +319,10 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
         "changed_by": [["id", BaseFilterRelatedUsers, lambda: []]],
     }
 
-    @expose("/<int:pk>/connection", methods=("GET",))
+    @expose("/<id_or_uuid>/connection", methods=("GET",))
     @protect()
     @safe
-    def get_connection(self, pk: int) -> Response:
+    def get_connection(self, id_or_uuid: str) -> Response:
         """Get database connection info.
         ---
         get:
@@ -349,23 +349,23 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
             500:
               $ref: '#/components/responses/500'
         """
-        database = DatabaseDAO.find_by_id(pk)
+        database = DatabaseDAO.find_by_id_or_uuid(id_or_uuid)
         database_connection_schema = DatabaseConnectionSchema()
         response = {
-            "id": pk,
+            "id": 11111111111,  # pk
             "result": database_connection_schema.dump(database, many=False),
         }
         try:
-            if ssh_tunnel := DatabaseDAO.get_ssh_tunnel(pk):
+            if ssh_tunnel := DatabaseDAO.get_ssh_tunnel(id_or_uuid):
                 response["result"]["ssh_tunnel"] = ssh_tunnel.data
             return self.response(200, **response)
         except SupersetException as ex:
             return self.response(ex.status, message=ex.message)
 
-    @expose("/<int:pk>", methods=("GET",))
+    @expose("/<id_or_uuid>", methods=("GET",))
     @protect()
     @safe
-    def get(self, pk: int, **kwargs: Any) -> Response:
+    def get(self, id_or_uuid: str, **kwargs: Any) -> Response:
         """Get a database.
         ---
         get:
@@ -373,9 +373,9 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
           parameters:
           - in: path
             schema:
-              type: integer
+              type: string
             description: The database id
-            name: pk
+            name: id_or_uuid
           responses:
             200:
               description: Database
@@ -392,9 +392,9 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
             500:
               $ref: '#/components/responses/500'
         """
-        data = self.get_headless(pk, **kwargs)
+        data = self.get_headless(id_or_uuid, **kwargs)
         try:
-            if ssh_tunnel := DatabaseDAO.get_ssh_tunnel(pk):
+            if ssh_tunnel := DatabaseDAO.get_ssh_tunnel(id_or_uuid):
                 payload = data.json
                 payload["result"]["ssh_tunnel"] = ssh_tunnel.data
                 return payload
@@ -488,7 +488,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
         except SupersetException as ex:
             return self.response(ex.status, message=ex.message)
 
-    @expose("/<int:pk>", methods=("PUT",))
+    @expose("/<id_or_uuid>", methods=("PUT",))
     @protect()
     @safe
     @statsd_metrics
@@ -497,7 +497,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
         log_to_statsd=False,
     )
     @requires_json
-    def put(self, pk: int) -> Response:
+    def put(self, id_or_uuid: str) -> Response:
         """Update a database.
         ---
         put:
@@ -505,8 +505,8 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
           parameters:
           - in: path
             schema:
-              type: integer
-            name: pk
+              type: string
+            name: id_or_uuid
           requestBody:
             description: Database schema
             required: true
@@ -545,7 +545,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
         except ValidationError as error:
             return self.response_400(message=error.messages)
         try:
-            changed_model = UpdateDatabaseCommand(pk, item).run()
+            changed_model = UpdateDatabaseCommand(id_or_uuid, item).run()
             # Return censored version for sqlalchemy URI
             item["sqlalchemy_uri"] = changed_model.sqlalchemy_uri
             if changed_model.parameters:
@@ -571,7 +571,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
         except (SSHTunnelingNotEnabledError, SSHTunnelDatabasePortError) as ex:
             return self.response_400(message=str(ex))
 
-    @expose("/<int:pk>", methods=("DELETE",))
+    @expose("/<id_or_uuid>", methods=("DELETE",))
     @protect()
     @safe
     @statsd_metrics
@@ -579,7 +579,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
         action=lambda self, *args, **kwargs: f"{self.__class__.__name__}.delete",
         log_to_statsd=False,
     )
-    def delete(self, pk: int) -> Response:
+    def delete(self, id_or_uuid: str) -> Response:
         """Delete a database.
         ---
         delete:
@@ -587,8 +587,8 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
           parameters:
           - in: path
             schema:
-              type: integer
-            name: pk
+              type: string
+            name: id_or_uuid
           responses:
             200:
               description: Database deleted
@@ -611,7 +611,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
               $ref: '#/components/responses/500'
         """
         try:
-            DeleteDatabaseCommand(pk).run()
+            DeleteDatabaseCommand(id_or_uuid).run()
             return self.response(200, message="OK")
         except DatabaseNotFoundError:
             return self.response_404()
@@ -673,7 +673,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
             return self.response(202, message="Async task created to sync permissions")
         return self.response(200, message="Permissions successfully synced")
 
-    @expose("/<int:pk>/catalogs/")
+    @expose("/<id_or_uuid>/catalogs/")
     @protect()
     @rison(database_catalogs_query_schema)
     @statsd_metrics
@@ -681,7 +681,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
         action=lambda self, *args, **kwargs: f"{self.__class__.__name__}.catalogs",
         log_to_statsd=False,
     )
-    def catalogs(self, pk: int, **kwargs: Any) -> FlaskResponse:
+    def catalogs(self, id_or_uuid: str, **kwargs: Any) -> FlaskResponse:
         """Get all catalogs from a database.
         ---
         get:
@@ -689,8 +689,8 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
           parameters:
           - in: path
             schema:
-              type: integer
-            name: pk
+              type: sring
+            name: id_or_uuid
             description: The database id
           - in: query
             name: q
@@ -714,7 +714,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
             500:
               $ref: '#/components/responses/500'
         """
-        database = DatabaseDAO.find_by_id(pk)
+        database = DatabaseDAO.find_by_id_or_uuid(id_or_uuid)
         if not database:
             return self.response_404()
         try:
@@ -1012,7 +1012,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
         payload = database.db_engine_spec.get_extra_table_metadata(database, table)
         return self.response(200, **payload)
 
-    @expose("/<int:pk>/table_metadata/", methods=["GET"])
+    @expose("/<id_or_uuid>/table_metadata/", methods=["GET"])
     @protect()
     @statsd_metrics
     @event_logger.log_this_with_context(
@@ -1020,7 +1020,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
         f".table_metadata",
         log_to_statsd=False,
     )
-    def table_metadata(self, pk: int) -> FlaskResponse:
+    def table_metadata(self, id_or_uuid: str) -> FlaskResponse:
         """
         Get metadata for a given table.
 
@@ -1071,7 +1071,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
         """
         self.incr_stats("init", self.table_metadata.__name__)
 
-        database = DatabaseDAO.find_by_id(pk)
+        database = DatabaseDAO.find_by_id_or_uuid(id_or_uuid)
         if database is None:
             raise DatabaseNotFoundException("No such database")
 
@@ -1091,7 +1091,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
 
         return self.response(200, **payload)
 
-    @expose("/<int:pk>/table_metadata/extra/", methods=["GET"])
+    @expose("/<id_or_uuid>/table_metadata/extra/", methods=["GET"])
     @protect()
     @statsd_metrics
     @event_logger.log_this_with_context(
@@ -1099,7 +1099,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
         f".table_extra_metadata",
         log_to_statsd=False,
     )
-    def table_extra_metadata(self, pk: int) -> FlaskResponse:
+    def table_extra_metadata(self, id_or_uuid: str) -> FlaskResponse:
         """
         Get extra metadata for a given table.
 
@@ -1113,8 +1113,8 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
           parameters:
           - in: path
             schema:
-              type: integer
-            name: pk
+              type: string
+            name: id_or_uuid
             description: The database id
           - in: query
             schema:
@@ -1152,7 +1152,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
         """
         self.incr_stats("init", self.table_extra_metadata.__name__)
 
-        if not (database := DatabaseDAO.find_by_id(pk)):
+        if not (database := DatabaseDAO.find_by_id_or_uuid(id_or_uuid)):
             raise DatabaseNotFoundException("No such database")
 
         try:
@@ -1171,8 +1171,10 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
 
         return self.response(200, **payload)
 
-    @expose("/<int:pk>/select_star/<path:table_name>/", methods=("GET",))
-    @expose("/<int:pk>/select_star/<path:table_name>/<schema_name>/", methods=("GET",))
+    @expose("/<id_or_uuid>/select_star/<path:table_name>/", methods=("GET",))
+    @expose(
+        "/<id_or_uuid>/select_star/<path:table_name>/<schema_name>/", methods=("GET",)
+    )
     @protect()
     @check_table_access
     @safe
@@ -1283,7 +1285,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
         except (SSHTunnelingNotEnabledError, SSHTunnelDatabasePortError) as ex:
             return self.response_400(message=str(ex))
 
-    @expose("/<int:pk>/related_objects/", methods=("GET",))
+    @expose("/<id_or_uuid>/related_objects/", methods=("GET",))
     @protect()
     @safe
     @statsd_metrics
@@ -1292,16 +1294,16 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
         f".related_objects",
         log_to_statsd=False,
     )
-    def related_objects(self, pk: int) -> Response:
+    def related_objects(self, id_or_uuid: str) -> Response:
         """Get charts and dashboards count associated to a database.
         ---
         get:
           summary: Get charts and dashboards count associated to a database
           parameters:
           - in: path
-            name: pk
+            name: id_or_uuid
             schema:
-              type: integer
+              type: string
           responses:
             200:
               description: Query result
@@ -1316,10 +1318,10 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
             500:
               $ref: '#/components/responses/500'
         """
-        database = DatabaseDAO.find_by_id(pk)
+        database = DatabaseDAO.find_by_id_or_uuid(id_or_uuid)
         if not database:
             return self.response_404()
-        data = DatabaseDAO.get_related_objects(pk)
+        data = DatabaseDAO.get_related_objects(id_or_uuid)
         charts = [
             {
                 "id": chart.id,
@@ -1779,7 +1781,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
             return self.response_400(message=error.messages)
         return self.response(201, message="OK")
 
-    @expose("/<int:pk>/function_names/", methods=("GET",))
+    @expose("/<id_or_uuid>/function_names/", methods=("GET",))
     @protect()
     @safe
     @statsd_metrics
@@ -1788,16 +1790,16 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
         f".function_names",
         log_to_statsd=False,
     )
-    def function_names(self, pk: int) -> Response:
+    def function_names(self, id_or_uuid: str) -> Response:
         """Get function names supported by a database.
         ---
         get:
           summary: Get function names supported by a database
           parameters:
           - in: path
-            name: pk
+            name: id_or_uuid
             schema:
-              type: integer
+              type: string
           responses:
             200:
               description: Query result
@@ -1812,7 +1814,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
             500:
               $ref: '#/components/responses/500'
         """
-        database = DatabaseDAO.find_by_id(pk)
+        database = DatabaseDAO.find_by_id_or_uuid(id_or_uuid)
         if not database:
             return self.response_404()
         return self.response(
@@ -1991,7 +1993,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
         command.run()
         return self.response(200, message="OK")
 
-    @expose("/<int:pk>/ssh_tunnel/", methods=("DELETE",))
+    @expose("/<id_or_uuid>/ssh_tunnel/", methods=("DELETE",))
     @protect()
     @statsd_metrics
     @deprecated(deprecated_in="4.0")
@@ -2000,7 +2002,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
         f".delete_ssh_tunnel",
         log_to_statsd=False,
     )
-    def delete_ssh_tunnel(self, pk: int) -> Response:
+    def delete_ssh_tunnel(self, id_or_uuid: str) -> Response:
         """Delete a SSH tunnel.
         ---
         delete:
@@ -2008,8 +2010,8 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
           parameters:
           - in: path
             schema:
-              type: integer
-            name: pk
+              type: string
+            name: id_or_uuid
           responses:
             200:
               description: SSH Tunnel deleted
@@ -2032,7 +2034,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
               $ref: '#/components/responses/500'
         """
 
-        database = DatabaseDAO.find_by_id(pk)
+        database = DatabaseDAO.find_by_id_or_uuid(id_or_uuid)
         if not database:
             return self.response_404()
         try:
@@ -2058,7 +2060,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
             )
             return self.response_400(message=str(ex))
 
-    @expose("/<int:pk>/schemas_access_for_file_upload/")
+    @expose("/<id_or_uuid>/schemas_access_for_file_upload/")
     @protect()
     @safe
     @statsd_metrics
@@ -2067,7 +2069,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
         f".schemas_access_for_file_upload",
         log_to_statsd=False,
     )
-    def schemas_access_for_file_upload(self, pk: int) -> Response:
+    def schemas_access_for_file_upload(self, id_or_uuid: str) -> Response:
         """The list of the database schemas where to upload information.
         ---
         get:
@@ -2091,7 +2093,7 @@ class DatabaseRestApi(BaseSupersetModelRestApi):
             500:
               $ref: '#/components/responses/500'
         """  # noqa: E501
-        database = DatabaseDAO.find_by_id(pk)
+        database = DatabaseDAO.find_by_id_or_uuid(id_or_uuid)
         if not database:
             return self.response_404()
 

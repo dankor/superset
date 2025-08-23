@@ -46,7 +46,7 @@ class UpdateRLSRuleCommand(BaseCommand):
         return RLSDAO.update(self._model, self._properties)
 
     def validate(self) -> None:
-        self._model = RLSDAO.find_by_id(int(self._model_id))
+        self._model = RLSDAO.find_by_id_or_uuid(int(self._model_id))
         if not self._model:
             raise RLSRuleNotFoundError()
         roles = populate_roles(self._roles)

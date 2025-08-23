@@ -53,7 +53,7 @@ class UpdateTagCommand(UpdateMixin, BaseCommand):
     def validate(self) -> None:
         exceptions = []
         # Validate/populate model exists
-        self._model = TagDAO.find_by_id(self._model_id)
+        self._model = TagDAO.find_by_id_or_uuid(self._model_id)
         if not self._model:
             raise TagNotFoundError()
 

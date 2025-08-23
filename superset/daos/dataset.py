@@ -40,19 +40,28 @@ class DatasetDAO(BaseDAO[SqlaTable]):
     base_filter = DatasourceFilter
 
     @staticmethod
-    def get_database_by_id(database_id: int) -> Database | None:
+    def get_database_by_id(database_id_or_uuid: int | str) -> Database | None:
+        if database_id_or_uuid.isdigit():
+            id_filter = Database.id == int(database_id_or_uuid)
+        else:
+            id_filter = Database.uuid == database_id_or_uuid
         try:
-            return db.session.query(Database).filter_by(id=database_id).one_or_none()
+            return db.session.query(Database).filter_by(id_filter).one_or_none()
         except SQLAlchemyError as ex:  # pragma: no cover
             logger.error("Could not get database by id: %s", str(ex), exc_info=True)
             return None
 
     @staticmethod
-    def get_related_objects(database_id: int) -> dict[str, Any]:
+    def get_related_objects(database_id_or_uuid: str) -> dict[str, Any]:
+        if database_id_or_uuid.isdigit():
+            id_filter = Slice.datasource_id == database_id_or_uuid
+        else:
+            id_filter = Slice.datasource_uuid == database_id_or_uuid
+
         charts = (
             db.session.query(Slice)
             .filter(
-                Slice.datasource_id == database_id,
+                id_filter,
                 Slice.datasource_type == DatasourceType.TABLE,
             )
             .all()
@@ -125,16 +134,20 @@ class DatasetDAO(BaseDAO[SqlaTable]):
         return not db.session.query(dataset_query.exists()).scalar()
 
     @staticmethod
-    def validate_columns_exist(dataset_id: int, columns_ids: list[int]) -> bool:
+    def validate_columns_exist(dataset_id_or_uuid: str, columns_ids: list[int]) -> bool:
+        if dataset_id_or_uuid.isdigit():
+            id_filter = TableColumn.table_id == int(dataset_id_or_uuid)
+        else:
+            id_filter = TableColumn.uuid == dataset_id_or_uuid
         dataset_query = (
             db.session.query(TableColumn.id).filter(
-                TableColumn.table_id == dataset_id, TableColumn.id.in_(columns_ids)
+                id_filter, TableColumn.id.in_(columns_ids)
             )
         ).all()
         return len(columns_ids) == len(dataset_query)
 
     @staticmethod
-    def validate_columns_uniqueness(dataset_id: int, columns_names: list[str]) -> bool:
+    def validate_columns_uniqueness(dataset_id: str, columns_names: list[str]) -> bool:
         dataset_query = (
             db.session.query(TableColumn.id).filter(
                 TableColumn.table_id == dataset_id,
@@ -144,16 +157,20 @@ class DatasetDAO(BaseDAO[SqlaTable]):
         return len(dataset_query) == 0
 
     @staticmethod
-    def validate_metrics_exist(dataset_id: int, metrics_ids: list[int]) -> bool:
+    def validate_metrics_exist(dataset_id_or_uuid: str, metrics_ids: list[int]) -> bool:
+        if dataset_id_or_uuid.isdigit():
+            id_filter = SqlMetric.table_id == int(dataset_id_or_uuid)
+        else:
+            id_filter = Table.uuid == dataset_id_or_uuid
         dataset_query = (
-            db.session.query(SqlMetric.id).filter(
-                SqlMetric.table_id == dataset_id, SqlMetric.id.in_(metrics_ids)
-            )
+            db.session.query(SqlMetric.id)
+            .join(Table, SqlMetric.table_id == Table.id)
+            .filter(id_filter, SqlMetric.id.in_(metrics_ids))
         ).all()
         return len(metrics_ids) == len(dataset_query)
 
     @staticmethod
-    def validate_metrics_uniqueness(dataset_id: int, metrics_names: list[str]) -> bool:
+    def validate_metrics_uniqueness(dataset_id: str, metrics_names: list[str]) -> bool:
         dataset_query = (
             db.session.query(SqlMetric.id).filter(
                 SqlMetric.table_id == dataset_id,
@@ -324,21 +341,29 @@ class DatasetDAO(BaseDAO[SqlaTable]):
         ).delete(synchronize_session="fetch")
 
     @classmethod
-    def find_dataset_column(cls, dataset_id: int, column_id: int) -> TableColumn | None:
+    def find_dataset_column(
+        cls, dataset_id_or_uuid: str, column_id: int
+    ) -> TableColumn | None:
         # We want to apply base dataset filters
-        dataset = DatasetDAO.find_by_id(dataset_id)
+        dataset = DatasetDAO.find_by_id_or_uuid(dataset_id_or_uuid)
         if not dataset:
             return None
+
+        if dataset_id_or_uuid.isdigit():
+            id_filter = Database.id == int(dataset_id_or_uuid)
+        else:
+            id_filter = Database.uuid == dataset_id_or_uuid
+
         return (
             db.session.query(TableColumn)
-            .filter(TableColumn.table_id == dataset_id, TableColumn.id == column_id)
+            .filter(id_filter, TableColumn.id == column_id)
             .one_or_none()
         )
 
     @classmethod
-    def find_dataset_metric(cls, dataset_id: int, metric_id: int) -> SqlMetric | None:
+    def find_dataset_metric(cls, dataset_id: str, metric_id: int) -> SqlMetric | None:
         # We want to apply base dataset filters
-        dataset = DatasetDAO.find_by_id(dataset_id)
+        dataset = DatasetDAO.find_by_id_or_uuid(dataset_id)
         if not dataset:
             return None
         return db.session.query(SqlMetric).get(metric_id)

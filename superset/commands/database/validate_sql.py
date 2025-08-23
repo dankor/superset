@@ -89,7 +89,7 @@ class ValidateSQLCommand(BaseCommand):
 
     def validate(self) -> None:
         # Validate/populate model exists
-        self._model = DatabaseDAO.find_by_id(self._model_id)
+        self._model = DatabaseDAO.find_by_id_or_uuid(self._model_id)
         if not self._model:
             raise DatabaseNotFoundError()
 

@@ -182,7 +182,7 @@ class UploadCommand(BaseCommand):
         sqla_table.fetch_metadata()
 
     def validate(self) -> None:
-        self._model = DatabaseDAO.find_by_id(self._model_id)
+        self._model = DatabaseDAO.find_by_id_or_uuid(str(self._model_id))
         if not self._model:
             raise DatabaseNotFoundError()
         if not schema_allows_file_upload(self._model, self._schema):

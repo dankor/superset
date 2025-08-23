@@ -143,6 +143,6 @@ class TablesDatabaseCommand(BaseCommand):
             raise DatabaseTablesUnexpectedError(str(ex)) from ex
 
     def validate(self) -> None:
-        self._model = cast(Database, DatabaseDAO.find_by_id(self._db_id))
+        self._model = cast(Database, DatabaseDAO.find_by_id_or_uuid(self._db_id))
         if not self._model:
             raise DatabaseNotFoundError()

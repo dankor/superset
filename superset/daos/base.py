@@ -43,6 +43,7 @@ class BaseDAO(Generic[T]):
     Child classes can register base filtering to be applied to all filter methods
     """
     id_column_name = "id"
+    uuid_column_name = "uuid"
 
     def __init_subclass__(cls) -> None:
         cls.model_cls = get_args(
@@ -50,9 +51,9 @@ class BaseDAO(Generic[T]):
         )[0]
 
     @classmethod
-    def find_by_id(
+    def find_by_id_or_uuid(
         cls,
-        model_id: str | int,
+        model_id_or_uuid: str,
         skip_base_filter: bool = False,
     ) -> T | None:
         """
@@ -65,8 +66,14 @@ class BaseDAO(Generic[T]):
                 cls.id_column_name, data_model
             ).apply(query, None)
         id_column = getattr(cls.model_cls, cls.id_column_name)
+        uuid_column = getattr(cls.model_cls, "uuid", None)
+
+        if model_id_or_uuid.isdigit():
+            id_filter = id_column == int(model_id_or_uuid)
+        else:
+            id_filter = uuid_column == model_id_or_uuid
         try:
-            return query.filter(id_column == model_id).one_or_none()
+            return query.filter(id_filter).one_or_none()
         except StatementError:
             # can happen if int is passed instead of a string or similar
             return None

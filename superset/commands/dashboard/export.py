@@ -142,7 +142,7 @@ class ExportDashboardsCommand(ExportModelsCommand):
             for target in native_filter.get("targets", []):
                 dataset_id = target.pop("datasetId", None)
                 if dataset_id is not None:
-                    dataset = DatasetDAO.find_by_id(dataset_id)
+                    dataset = DatasetDAO.find_by_id_or_uuid(dataset_id)
                     if dataset:
                         target["datasetUuid"] = str(dataset.uuid)
 
@@ -218,6 +218,6 @@ class ExportDashboardsCommand(ExportModelsCommand):
                 for target in native_filter.get("targets", []):
                     dataset_id = target.pop("datasetId", None)
                     if dataset_id is not None:
-                        dataset = DatasetDAO.find_by_id(dataset_id)
+                        dataset = DatasetDAO.find_by_id_or_uuid(dataset_id)
                         if dataset:
                             yield from ExportDatasetsCommand([dataset_id]).run()

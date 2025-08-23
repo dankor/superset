@@ -69,10 +69,16 @@ class DatabaseDAO(BaseDAO[Database]):
         return not db.session.query(database_query.exists()).scalar()
 
     @staticmethod
-    def validate_update_uniqueness(database_id: int, database_name: str) -> bool:
+    def validate_update_uniqueness(
+        database_id_or_uuid: str, database_name: str
+    ) -> bool:
+        if database_id_or_uuid.isdigit():
+            id_filter = Database.id != int(database_id_or_uuid)
+        else:
+            id_filter = Database.uuid != database_id_or_uuid
         database_query = db.session.query(Database).filter(
             Database.database_name == database_name,
-            Database.id != database_id,
+            id_filter,
         )
         return not db.session.query(database_query.exists()).scalar()
 
@@ -96,8 +102,8 @@ class DatabaseDAO(BaseDAO[Database]):
         )
 
     @classmethod
-    def get_related_objects(cls, database_id: int) -> dict[str, Any]:
-        database: Any = cls.find_by_id(database_id)
+    def get_related_objects(cls, database_id: str) -> dict[str, Any]:
+        database: Any = cls.find_by_id_or_uuid(database_id)
         datasets = database.tables
         dataset_ids = [dataset.id for dataset in datasets]
 
@@ -134,7 +140,7 @@ class DatabaseDAO(BaseDAO[Database]):
     @classmethod
     def get_datasets(
         cls,
-        database_id: int,
+        database_id: str,
         catalog: str | None,
         schema: str | None,
     ) -> list[SqlaTable]:
@@ -149,7 +155,7 @@ class DatabaseDAO(BaseDAO[Database]):
         return (
             db.session.query(SqlaTable)
             .filter(
-                SqlaTable.database_id == database_id,
+                SqlaTable.database_id == int(database_id),
                 SqlaTable.catalog == catalog,
                 SqlaTable.schema == schema,
             )
@@ -157,12 +163,12 @@ class DatabaseDAO(BaseDAO[Database]):
         )
 
     @classmethod
-    def get_ssh_tunnel(cls, database_id: int) -> SSHTunnel | None:
-        ssh_tunnel = (
-            db.session.query(SSHTunnel)
-            .filter(SSHTunnel.database_id == database_id)
-            .one_or_none()
-        )
+    def get_ssh_tunnel(cls, database_id_or_uuid: str) -> SSHTunnel | None:
+        if database_id_or_uuid.isdigit():
+            id_filter = SSHTunnel.database_id == int(database_id_or_uuid)
+        else:
+            id_filter = SSHTunnel.uuid == database_id_or_uuid
+        ssh_tunnel = db.session.query(SSHTunnel).filter(id_filter).one_or_none()
 
         return ssh_tunnel
 

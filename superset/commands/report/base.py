@@ -68,12 +68,12 @@ class BaseReportScheduleCommand(BaseCommand):
             exceptions.append(ReportScheduleOnlyChartOrDashboardError())
 
         if chart_id:
-            chart = ChartDAO.find_by_id(chart_id)
+            chart = ChartDAO.find_by_id_or_uuid(chart_id)
             if not chart:
                 exceptions.append(ChartNotFoundValidationError())
             self._properties["chart"] = chart
         elif dashboard_id:
-            dashboard = DashboardDAO.find_by_id(dashboard_id)
+            dashboard = DashboardDAO.find_by_id_or_uuid(dashboard_id)
             if not dashboard:
                 exceptions.append(DashboardNotFoundValidationError())
             self._properties["dashboard"] = dashboard

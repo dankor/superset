@@ -913,7 +913,7 @@ def get_template_processor(
 
 
 def dataset_macro(
-    dataset_id: int,
+    dataset_id: str,
     include_metrics: bool = False,
     columns: list[str] | None = None,
     from_dttm: datetime | None = None,
@@ -932,7 +932,7 @@ def dataset_macro(
     # pylint: disable=import-outside-toplevel
     from superset.daos.dataset import DatasetDAO
 
-    dataset = DatasetDAO.find_by_id(dataset_id)
+    dataset = DatasetDAO.find_by_id_or_uuid(dataset_id)
     if not dataset:
         raise DatasetNotFoundError(f"Dataset {dataset_id} not found!")
 
@@ -951,7 +951,7 @@ def dataset_macro(
     return f"(\n{sql}\n) AS dataset_{dataset_id}"
 
 
-def get_dataset_id_from_context(metric_key: str) -> int:
+def get_dataset_id_from_context(metric_key: str) -> str:
     """
     Retrieves the Dataset ID from the request context.
 
@@ -987,7 +987,7 @@ def get_dataset_id_from_context(metric_key: str) -> int:
         if dataset_id := url_params.get("datasource_id"):
             return dataset_id
         if chart_id := (form_data.get("slice_id") or url_params.get("slice_id")):
-            chart_data = ChartDAO.find_by_id(chart_id)
+            chart_data = ChartDAO.find_by_id_or_uuid(chart_id)
             if not chart_data:
                 raise SupersetTemplateException(exc_message)
             return chart_data.datasource_id
@@ -999,7 +999,7 @@ def metric_macro(
     env: Environment,
     context: dict[str, Any],
     metric_key: str,
-    dataset_id: int | None = None,
+    dataset_id: str | None = None,
 ) -> str:
     """
     Given a metric key, returns its syntax.
@@ -1017,7 +1017,7 @@ def metric_macro(
     if not dataset_id:
         dataset_id = get_dataset_id_from_context(metric_key)
 
-    dataset = DatasetDAO.find_by_id(dataset_id)
+    dataset = DatasetDAO.find_by_id_or_uuid(str(dataset_id))
     if not dataset:
         raise DatasetNotFoundError(f"Dataset ID {dataset_id} not found.")
 

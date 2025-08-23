@@ -87,7 +87,8 @@ def test_update_command_success(session_with_data: Session, mocker: MockerFixtur
         "superset.security.SupersetSecurityManager.is_admin", return_value=True
     )
     mocker.patch(
-        "superset.daos.dashboard.DashboardDAO.find_by_id", return_value=dashboard
+        "superset.daos.dashboard.DashboardDAO.find_by_id_or_uuid",
+        return_value=dashboard,
     )
 
     objects_to_tag = [
@@ -126,9 +127,10 @@ def test_update_command_success_duplicates(
     mocker.patch(
         "superset.security.SupersetSecurityManager.is_admin", return_value=True
     )
-    mocker.patch("superset.daos.chart.ChartDAO.find_by_id", return_value=chart)
+    mocker.patch("superset.daos.chart.ChartDAO.find_by_id_or_uuid", return_value=chart)
     mocker.patch(
-        "superset.daos.dashboard.DashboardDAO.find_by_id", return_value=dashboard
+        "superset.daos.dashboard.DashboardDAO.find_by_id_or_uuid",
+        return_value=dashboard,
     )
 
     objects_to_tag = [
@@ -180,9 +182,10 @@ def test_update_command_failed_validation(
     mocker.patch(
         "superset.security.SupersetSecurityManager.is_admin", return_value=True
     )
-    mocker.patch("superset.daos.chart.ChartDAO.find_by_id", return_value=chart)
+    mocker.patch("superset.daos.chart.ChartDAO.find_by_id_or_uuid", return_value=chart)
     mocker.patch(
-        "superset.daos.dashboard.DashboardDAO.find_by_id", return_value=dashboard
+        "superset.daos.dashboard.DashboardDAO.find_by_id_or_uuid",
+        return_value=dashboard,
     )
 
     CreateCustomTagWithRelationshipsCommand(

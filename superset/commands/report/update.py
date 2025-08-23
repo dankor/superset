@@ -62,7 +62,7 @@ class UpdateReportScheduleCommand(UpdateMixin, BaseReportScheduleCommand):
         Fields were loaded according to the `ReportSchedulePutSchema` schema.
         """  # noqa: E501
         # Load existing report schedule config
-        self._model = ReportScheduleDAO.find_by_id(self._model_id)
+        self._model = ReportScheduleDAO.find_by_id_or_uuid(str(self._model_id))
         if not self._model:
             raise ReportScheduleNotFoundError()
 
@@ -100,7 +100,7 @@ class UpdateReportScheduleCommand(UpdateMixin, BaseReportScheduleCommand):
 
         # Validate if DB exists (for alerts)
         if report_type == ReportScheduleType.ALERT and database_id:
-            if not (database := DatabaseDAO.find_by_id(database_id)):
+            if not (database := DatabaseDAO.find_by_id_or_uuid(database_id)):
                 exceptions.append(DatabaseNotFoundValidationError())
             self._properties["database"] = database
 

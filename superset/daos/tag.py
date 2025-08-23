@@ -260,7 +260,7 @@ class TagDAO(BaseDAO[Tag]):
 
     @staticmethod
     def favorite_tag_by_id_for_current_user(  # pylint: disable=invalid-name
-        tag_id: int,
+        tag_id: str,
     ) -> None:
         """
         Marks a specific tag as a favorite for the current user.
@@ -268,7 +268,7 @@ class TagDAO(BaseDAO[Tag]):
         :param tag_id: The id of the tag that is to be marked as favorite
         """
 
-        tag = TagDAO.find_by_id(tag_id)
+        tag = TagDAO.find_by_id_or_uuid(tag_id)
         user = g.user
 
         if not user:
@@ -279,13 +279,13 @@ class TagDAO(BaseDAO[Tag]):
         tag.users_favorited.append(user)
 
     @staticmethod
-    def remove_user_favorite_tag(tag_id: int) -> None:
+    def remove_user_favorite_tag(tag_id: str) -> None:
         """
         Removes a tag from the current user's favorite tags.
 
         :param tag_id: The id of the tag that is to be removed from the favorite tags
         """
-        tag = TagDAO.find_by_id(tag_id)
+        tag = TagDAO.find_by_id_or_uuid(tag_id)
         user = g.user
 
         if not user:

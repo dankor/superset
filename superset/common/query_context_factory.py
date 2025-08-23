@@ -110,7 +110,7 @@ class QueryContextFactory:  # pylint: disable=too-few-public-methods
         )
 
     def _get_slice(self, slice_id: Any) -> Slice | None:
-        return ChartDAO.find_by_id(slice_id)
+        return ChartDAO.find_by_id_or_uuid(slice_id)
 
     def _process_query_object(
         self,

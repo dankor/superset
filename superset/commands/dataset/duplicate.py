@@ -106,7 +106,7 @@ class DuplicateDatasetCommand(CreateMixin, BaseCommand):
         base_model_id = self._properties["base_model_id"]
         duplicate_name = self._properties["table_name"]
 
-        base_model = DatasetDAO.find_by_id(base_model_id)
+        base_model = DatasetDAO.find_by_id_or_uuid(base_model_id)
         if not base_model:
             exceptions.append(DatasetNotFoundError())
         else:

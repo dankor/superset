@@ -909,7 +909,7 @@ class ChartRestApi(BaseSupersetModelRestApi):
         ]
         return self.response(200, result=res)
 
-    @expose("/<pk>/favorites/", methods=("POST",))
+    @expose("/<id_or_uuid>/favorites/", methods=("POST",))
     @protect()
     @safe
     @statsd_metrics
@@ -917,7 +917,7 @@ class ChartRestApi(BaseSupersetModelRestApi):
         action=lambda self, *args, **kwargs: f"{self.__class__.__name__}.add_favorite",
         log_to_statsd=False,
     )
-    def add_favorite(self, pk: int) -> Response:
+    def add_favorite(self, id_or_uuid: str) -> Response:
         """Mark the chart as favorite for the current user.
         ---
         post:
@@ -925,8 +925,8 @@ class ChartRestApi(BaseSupersetModelRestApi):
           parameters:
           - in: path
             schema:
-              type: integer
-            name: pk
+              type: string
+            name: id_or_uuid
           responses:
             200:
               description: Chart added to favorites
@@ -945,7 +945,7 @@ class ChartRestApi(BaseSupersetModelRestApi):
               $ref: '#/components/responses/500'
         """
         try:
-            AddFavoriteChartCommand(pk).run()
+            AddFavoriteChartCommand(id_or_uuid).run()
         except ChartNotFoundError:
             return self.response_404()
         except ChartForbiddenError:
@@ -953,7 +953,7 @@ class ChartRestApi(BaseSupersetModelRestApi):
 
         return self.response(200, result="OK")
 
-    @expose("/<pk>/favorites/", methods=("DELETE",))
+    @expose("/<id_or_uuid>/favorites/", methods=("DELETE",))
     @protect()
     @safe
     @statsd_metrics
@@ -962,7 +962,7 @@ class ChartRestApi(BaseSupersetModelRestApi):
         f".remove_favorite",
         log_to_statsd=False,
     )
-    def remove_favorite(self, pk: int) -> Response:
+    def remove_favorite(self, id_or_uuid: str) -> Response:
         """Remove the chart from the user favorite list.
         ---
         delete:
@@ -971,7 +971,7 @@ class ChartRestApi(BaseSupersetModelRestApi):
           - in: path
             schema:
               type: integer
-            name: pk
+            name: id_or_uuid
           responses:
             200:
               description: Chart removed from favorites
@@ -990,7 +990,7 @@ class ChartRestApi(BaseSupersetModelRestApi):
               $ref: '#/components/responses/500'
         """
         try:
-            DelFavoriteChartCommand(pk).run()
+            DelFavoriteChartCommand(id_or_uuid).run()
         except ChartNotFoundError:
             self.response_404()
         except ChartForbiddenError:

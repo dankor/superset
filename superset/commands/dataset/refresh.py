@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 
 class RefreshDatasetCommand(BaseCommand):
-    def __init__(self, model_id: int):
+    def __init__(self, model_id: str):
         self._model_id = model_id
         self._model: Optional[SqlaTable] = None
 
@@ -49,7 +49,7 @@ class RefreshDatasetCommand(BaseCommand):
 
     def validate(self) -> None:
         # Validate/populate model exists
-        self._model = DatasetDAO.find_by_id(self._model_id)
+        self._model = DatasetDAO.find_by_id_or_uuid(self._model_id)
         if not self._model:
             raise DatasetNotFoundError()
         # Check ownership

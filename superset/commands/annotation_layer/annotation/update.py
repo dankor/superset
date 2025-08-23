@@ -52,16 +52,16 @@ class UpdateAnnotationCommand(BaseCommand):
 
     def validate(self) -> None:
         exceptions: list[ValidationError] = []
-        layer_id: Optional[int] = self._properties.get("layer")
+        layer_id: Optional[str] = self._properties.get("layer")
         short_descr: str = self._properties.get("short_descr", "")
 
         # Validate/populate model exists
-        self._model = AnnotationDAO.find_by_id(self._model_id)
+        self._model = AnnotationDAO.find_by_id_or_uuid(self._model_id)
         if not self._model:
             raise AnnotationNotFoundError()
         # Validate/populate layer exists
         if layer_id:
-            annotation_layer = AnnotationLayerDAO.find_by_id(layer_id)
+            annotation_layer = AnnotationLayerDAO.find_by_id_or_uuid(layer_id)
             if not annotation_layer:
                 raise AnnotationLayerNotFoundError()
             self._properties["layer"] = annotation_layer

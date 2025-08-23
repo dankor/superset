@@ -87,7 +87,7 @@ class CreateReportScheduleCommand(CreateMixin, BaseReportScheduleCommand):
         if report_type == ReportScheduleType.ALERT:
             try:
                 database_id = self._properties["database"]
-                if database := DatabaseDAO.find_by_id(database_id):
+                if database := DatabaseDAO.find_by_id_or_uuid(database_id):
                     self._properties["database"] = database
                 else:
                     exceptions.append(DatabaseNotFoundValidationError())

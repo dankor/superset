@@ -113,7 +113,7 @@ def get_datasource_by_id(datasource_id: int, datasource_type: str) -> BaseDataso
 def validate_tags(
     object_type: ObjectType,
     current_tags: list[Tag],
-    new_tag_ids: Optional[list[int]],
+    new_tag_ids: Optional[list[str]],
 ) -> None:
     """
     Helper function for update commands, to validate the tags list. Users
@@ -147,7 +147,7 @@ def validate_tags(
     # Validate if new tags already exist
     additional_tags = [tag for tag in new_tag_ids if tag not in current_custom_tags]
     for tag_id in additional_tags:
-        if not TagDAO.find_by_id(tag_id):
+        if not TagDAO.find_by_id_or_uuid(tag_id):
             validation_error = f"Tag ID {tag_id} not found"
             raise TagNotFoundValidationError(validation_error)
 

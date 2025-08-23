@@ -49,7 +49,7 @@ class EmbeddedView(BaseSupersetView):
         if not is_feature_enabled("EMBEDDED_SUPERSET"):
             abort(404)
 
-        embedded = EmbeddedDashboardDAO.find_by_id(uuid)
+        embedded = EmbeddedDashboardDAO.find_by_id_or_uuid(uuid)
 
         if not embedded:
             abort(404)
