@@ -30,6 +30,7 @@ from typing import (
     cast,
     ContextManager,
     NamedTuple,
+    Optional,
     TYPE_CHECKING,
     TypedDict,
     Union,
@@ -79,7 +80,7 @@ from superset.superset_typing import (
 )
 from superset.utils import core as utils, json
 from superset.utils.core import ColumnSpec, GenericDataType, QuerySource
-from superset.utils.hashing import md5_sha_from_str
+from superset.utils.hashing import hash_from_str
 from superset.utils.json import redact_sensitive, reveal_sensitive
 from superset.utils.network import is_hostname_valid, is_port_open
 from superset.utils.oauth2 import encode_oauth2_state
@@ -186,6 +187,135 @@ class MetricType(TypedDict, total=False):
     extra: str | None
 
 
+class DatabaseCategory:
+    """
+    Standard categories for database classification.
+    Used for organizing databases in documentation and UI.
+
+    Categories are grouped into:
+    - Cloud providers (where the database runs)
+    - Database types (what kind of database it is)
+    - Licensing (open source vs proprietary)
+    """
+
+    # Cloud providers
+    CLOUD_AWS = "Cloud - AWS"
+    CLOUD_GCP = "Cloud - Google"
+    CLOUD_AZURE = "Cloud - Azure"
+    CLOUD_DATA_WAREHOUSES = "Cloud Data Warehouses"
+
+    # Database types
+    APACHE_PROJECTS = "Apache Projects"
+    TRADITIONAL_RDBMS = "Traditional RDBMS"
+    ANALYTICAL_DATABASES = "Analytical Databases"
+    SEARCH_NOSQL = "Search & NoSQL"
+    QUERY_ENGINES = "Query Engines"
+    TIME_SERIES = "Time Series Databases"
+    OTHER = "Other Databases"
+
+    # Licensing
+    OPEN_SOURCE = "Open Source"
+    HOSTED_OPEN_SOURCE = "Hosted Open Source"
+    PROPRIETARY = "Proprietary"
+
+
+class DriverInfo(TypedDict, total=False):
+    """Information about a database driver."""
+
+    name: str
+    pypi_package: str
+    connection_string: str
+    is_recommended: bool
+    notes: str
+    docs_url: str
+
+
+class AuthenticationMethod(TypedDict, total=False):
+    """Information about an authentication method."""
+
+    name: str
+    description: str
+    requirements: str
+    connection_string: str
+    engine_parameters: dict[str, Any]
+    secure_extra: dict[str, Any]
+    notes: str
+
+
+class ConnectionExample(TypedDict, total=False):
+    """Example connection string configuration."""
+
+    description: str
+    connection_string: str
+
+
+class CompatibleDatabase(TypedDict, total=False):
+    """Information about a compatible/derived database."""
+
+    name: str
+    description: str
+    logo: str
+    homepage_url: str
+    pypi_packages: list[str]
+    connection_string: str
+    parameters: dict[str, str]
+    connection_examples: list[ConnectionExample]
+    notes: str
+    docs_url: str
+    categories: list[str]  # Override parent categories (e.g., for HOSTED_OPEN_SOURCE)
+
+
+class DBEngineSpecMetadata(TypedDict, total=False):
+    """
+    Metadata for database engine documentation and UI display.
+
+    This centralizes all documentation-related information for a database
+    engine, making it easier to add new databases without modifying
+    multiple files.
+    """
+
+    # Basic information
+    description: str
+    logo: str  # Filename in docs/static/img/databases/ or full URL
+    homepage_url: str
+    docs_url: str
+    sqlalchemy_docs_url: str
+    categories: list[str]  # Use DatabaseCategory constants, supports multiple
+
+    # Connection information
+    pypi_packages: list[str]
+    connection_string: str
+    default_port: int
+    parameters: dict[str, str]  # Parameter name -> description
+    connection_examples: list[ConnectionExample]
+
+    # Driver options (for databases with multiple drivers)
+    drivers: list[DriverInfo]
+
+    # Authentication methods
+    authentication_methods: list[AuthenticationMethod]
+
+    # Engine parameters (JSON configs for advanced options)
+    engine_parameters: list[dict[str, Any]]
+
+    # Additional information
+    notes: str
+    warnings: list[str]
+    tutorials: list[str]
+    install_instructions: str
+    version_requirements: str
+
+    # Related databases (e.g., PostgreSQL-compatible databases)
+    compatible_databases: list[CompatibleDatabase]
+
+    # Host examples (for databases with platform-specific configs)
+    host_examples: list[dict[str, str]]
+
+    # Advanced features documentation
+    ssl_configuration: dict[str, Any]
+    advanced_features: dict[str, str]
+
+
 class BaseEngineSpec:  # pylint: disable=too-many-public-methods
     """Abstract class for database engine specific configurations
 
@@ -201,6 +331,11 @@ class BaseEngineSpec:  # pylint: disable=too-many-public-methods
     """
 
     engine_name: str | None = None  # for user messages, overridden in child classes
+
+    # Documentation metadata for this engine spec. Centralizes all documentation
+    # information so adding a new database only requires modifying one file.
+    # See DBEngineSpecMetadata TypedDict for available fields.
+    metadata: DBEngineSpecMetadata = {}
 
     # These attributes map the DB engine spec to one or more SQLAlchemy dialects/drivers;  # noqa: E501
     # see the ``supports_url`` and ``supports_backend`` methods below.
@@ -550,17 +685,17 @@ class BaseEngineSpec:  # pylint: disable=too-many-public-methods
     ) -> str:
         """
         Return URI for initial OAuth2 request.
+
+        Uses standard OAuth 2.0 parameters only. Subclasses can override
+        to add provider-specific parameters (e.g., Google's prompt=consent).
         """
         uri = config["authorization_request_uri"]
         params = {
             "scope": config["scope"],
-            "access_type": "offline",
-            "include_granted_scopes": "false",
             "response_type": "code",
             "state": encode_oauth2_state(state),
             "redirect_uri": config["redirect_uri"],
             "client_id": config["id"],
-            "prompt": "consent",
         }
         return urljoin(uri, "?" + urlencode(params))
 
@@ -582,9 +717,13 @@ class BaseEngineSpec:  # pylint: disable=too-many-public-methods
             "redirect_uri": config["redirect_uri"],
             "grant_type": "authorization_code",
         }
-        if config["request_content_type"] == "data":
-            return requests.post(uri, data=req_body, timeout=timeout).json()
-        return requests.post(uri, json=req_body, timeout=timeout).json()
+        response = (
+            requests.post(uri, data=req_body, timeout=timeout)
+            if config["request_content_type"] == "data"
+            else requests.post(uri, json=req_body, timeout=timeout)
+        )
+        response.raise_for_status()
+        return response.json()
 
     @classmethod
     def get_oauth2_fresh_token(
@@ -603,9 +742,13 @@ class BaseEngineSpec:  # pylint: disable=too-many-public-methods
             "refresh_token": refresh_token,
             "grant_type": "refresh_token",
         }
-        if config["request_content_type"] == "data":
-            return requests.post(uri, data=req_body, timeout=timeout).json()
-        return requests.post(uri, json=req_body, timeout=timeout).json()
+        response = (
+            requests.post(uri, data=req_body, timeout=timeout)
+            if config["request_content_type"] == "data"
+            else requests.post(uri, json=req_body, timeout=timeout)
+        )
+        response.raise_for_status()
+        return response.json()
 
     @classmethod
     def get_allows_alias_in_select(
@@ -707,6 +850,7 @@ class BaseEngineSpec:  # pylint: disable=too-many-public-methods
         cls,
         database: Database,
         query: Query,
+        template_params: Optional[dict[str, Any]] = None,
     ) -> str | None:
         """
         Return the default schema for a given query.
@@ -1152,6 +1296,26 @@ class BaseEngineSpec:  # pylint: disable=too-many-public-methods
         return None
 
     @classmethod
+    def normalize_table_name_for_upload(
+        cls,
+        table_name: str,
+        schema_name: str | None = None,
+    ) -> tuple[str, str | None]:
+        """
+        Normalize table and schema names for file upload.
+
+        Some databases (e.g., Redshift) fold unquoted identifiers to lowercase,
+        which can cause issues when the upload creates a table with one case
+        but metadata operations use a different case. Override this method
+        to normalize names according to database-specific rules.
+
+        :param table_name: The table name to normalize
+        :param schema_name: The schema name to normalize (optional)
+        :return: Tuple of (normalized_table_name, normalized_schema_name)
+        """
+        return table_name, schema_name
+
+    @classmethod
     def df_to_sql(
         cls,
         database: Database,
@@ -1325,20 +1489,43 @@ class BaseEngineSpec:  # pylint: disable=too-many-public-methods
         return utils.error_msg_from_exception(ex)
 
     @classmethod
+    def get_database_custom_errors(
+        cls, database_name: str | None
+    ) -> dict[Any, tuple[str, SupersetErrorType, dict[str, Any]]]:
+        config_custom_errors = app.config.get("CUSTOM_DATABASE_ERRORS", {})
+        if not isinstance(config_custom_errors, dict):
+            return {}
+
+        if database_name and database_name in config_custom_errors:
+            database_errors = config_custom_errors[database_name]
+            if isinstance(database_errors, dict):
+                return database_errors
+        return {}
+
+    @classmethod
     def extract_errors(
-        cls, ex: Exception, context: dict[str, Any] | None = None
+        cls,
+        ex: Exception,
+        context: dict[str, Any] | None = None,
+        database_name: str | None = None,
     ) -> list[SupersetError]:
         raw_message = cls._extract_error_message(ex)
 
         context = context or {}
-        for regex, (message, error_type, extra) in cls.custom_errors.items():
+        db_engine_custom_errors = cls.get_database_custom_errors(database_name)
+
+        for regex, (message, error_type, extra) in [
+            *db_engine_custom_errors.items(),
+            *cls.custom_errors.items(),
+        ]:
             if match := regex.search(raw_message):
                 params = {**context, **match.groupdict()}
                 extra["engine_name"] = cls.engine_name
+                formatted_message = (message % params) if message else raw_message
                 return [
                     SupersetError(
                         error_type=error_type,
-                        message=message % params,
+                        message=formatted_message,
                         level=ErrorLevel.ERROR,
                         extra=extra,
                     )
@@ -1490,6 +1677,18 @@ class BaseEngineSpec:  # pylint: disable=too-many-public-methods
         if schema and cls.try_remove_schema_from_table_name:
             views = {re.sub(f"^{schema}\\.", "", view) for view in views}
         return views
+
+    @classmethod
+    def get_materialized_view_names(
+        cls,
+        database: Database,
+        inspector: Inspector,
+        schema: str | None,
+    ) -> set[str]:
+        """
+        Get all materialized views.
+        """
+        return set()
 
     @classmethod
     def get_indexes(
@@ -1938,7 +2137,7 @@ class BaseEngineSpec:  # pylint: disable=too-many-public-methods
         :param label: Expected expression label
         :return: Truncated label
         """
-        label = md5_sha_from_str(label)
+        label = hash_from_str(label)
         # truncate hash if it exceeds max length
         if cls.max_column_name_length and len(label) > cls.max_column_name_length:
             label = label[: cls.max_column_name_length]
@@ -1977,6 +2176,16 @@ class BaseEngineSpec:  # pylint: disable=too-many-public-methods
         :return: A list of function names useable in the database
         """
         return []
+
+    @classmethod
+    def get_column_description_limit_size(cls) -> int:
+        """
+        Get a minimum limit size for the sample SELECT column query
+        to fetch the column metadata.
+
+        :return: A number of limit size
+        """
+        return 1
 
     @staticmethod
     def pyodbc_rows_to_tuples(data: list[Any]) -> list[tuple[Any, ...]]:

@@ -27,6 +27,7 @@ import { FilterBarOrientation } from 'src/dashboard/types';
 import { FILTER_BAR_TEST_ID } from './utils';
 import FilterBar from '.';
 import { FILTERS_CONFIG_MODAL_TEST_ID } from '../FiltersConfigModal/FiltersConfigModal';
+import * as dataMaskActions from 'src/dataMask/actions';
 
 jest.useFakeTimers();
 
@@ -79,7 +80,7 @@ const addFilterFlow = async () => {
   // open filter config modals
   userEvent.click(screen.getByTestId(getTestId('collapsable')));
   userEvent.click(screen.getByLabelText('setting'));
-  userEvent.click(screen.getByText('Add or edit filters'));
+  userEvent.click(screen.getByText('Add or edit filters and controls'));
   // select filter
   userEvent.click(screen.getByText('Value'));
   userEvent.click(screen.getByText('Time range'));
@@ -89,6 +90,7 @@ const addFilterFlow = async () => {
   // await screen.findByText('All filters (1)');
 };
 
+// eslint-disable-next-line no-restricted-globals -- TODO: Migrate from describe blocks
 describe('FilterBar', () => {
   new MainPreset().register();
   const toggleFiltersBar = jest.fn();
@@ -102,25 +104,27 @@ describe('FilterBar', () => {
   };
 
   const mockApi = jest.fn(async data => {
-    const json = JSON.parse(data.json_metadata);
-    const filterId = json.native_filter_configuration[0].id;
+    if (!data?.modified?.length) {
+      return {
+        id: 1234,
+        result: [],
+      };
+    }
+    const filterId = data.modified[0].id;
     return {
       id: 1234,
-      result: {
-        json_metadata: `{
-            "label_colors":{"Girls":"#FF69B4","Boys":"#ADD8E6","girl":"#FF69B4","boy":"#ADD8E6"},
-            "native_filter_configuration":[{
-              "id":"${filterId}",
-              "name":"${FILTER_NAME}",
-              "filterType":"filter_time",
-              "targets":[{"datasetId":11,"column":{"name":"color"}}],
-              "defaultDataMask":{"filterState":{"value":null}},
-              "controlValues":{},
-              "cascadeParentIds":[],
-              "scope":{"rootPath":["ROOT_ID"],"excluded":[]}
-            }],
-          }`,
-      },
+      result: [
+        {
+          id: filterId,
+          name: FILTER_NAME,
+          filterType: 'filter_time',
+          targets: [{ datasetId: 11, column: { name: 'color' } }],
+          defaultDataMask: { filterState: { value: null } },
+          controlValues: {},
+          cascadeParentIds: [],
+          scope: { rootPath: ['ROOT_ID'], excluded: [] },
+        },
+      ],
     };
   });
 
@@ -178,39 +182,39 @@ describe('FilterBar', () => {
       },
     );
 
-  it('should render', () => {
+  test('should render', () => {
     const { container } = renderWrapper();
     expect(container).toBeInTheDocument();
   });
 
-  it('should render the "Filters" heading', () => {
+  test('should render the "Filters and controls" heading', () => {
     renderWrapper();
-    expect(screen.getByText('Filters')).toBeInTheDocument();
+    expect(screen.getByText('Filters and controls')).toBeInTheDocument();
   });
 
-  it('should render the "Clear all" option', () => {
+  test('should render the "Clear all" option', () => {
     renderWrapper();
     expect(screen.getByText('Clear all')).toBeInTheDocument();
   });
 
-  it('should render the "Apply filters" option', () => {
+  test('should render the "Apply filters" option', () => {
     renderWrapper();
     expect(screen.getByText('Apply filters')).toBeInTheDocument();
   });
 
-  it('should render the collapse icon', () => {
+  test('should render the collapse icon', () => {
     renderWrapper();
     expect(
       screen.getByRole('img', { name: 'vertical-align' }),
     ).toBeInTheDocument();
   });
 
-  it('should render the filter icon', () => {
+  test('should render the filter icon', () => {
     renderWrapper();
     expect(screen.getByRole('img', { name: 'filter' })).toBeInTheDocument();
   });
 
-  it('should toggle', () => {
+  test('should toggle', () => {
     renderWrapper();
     const collapse = screen.getByRole('img', {
       name: 'vertical-align',
@@ -220,7 +224,7 @@ describe('FilterBar', () => {
     expect(toggleFiltersBar).toHaveBeenCalled();
   });
 
-  it('open filter bar', () => {
+  test('open filter bar', () => {
     renderWrapper();
     expect(screen.getByTestId(getTestId('filter-icon'))).toBeInTheDocument();
     expect(screen.getByTestId(getTestId('expand-button'))).toBeInTheDocument();
@@ -229,7 +233,7 @@ describe('FilterBar', () => {
     expect(toggleFiltersBar).toHaveBeenCalledWith(true);
   });
 
-  it('no edit filter button by disabled permissions', () => {
+  test('no edit filter button by disabled permissions', () => {
     renderWrapper(openedBarProps, {
       ...stateWithoutNativeFilters,
       dashboardInfo: { metadata: {} },
@@ -240,7 +244,7 @@ describe('FilterBar', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('close filter bar', () => {
+  test('close filter bar', () => {
     renderWrapper(openedBarProps);
     const collapseButton = screen.getByTestId(getTestId('collapse-button'));
 
@@ -250,14 +254,14 @@ describe('FilterBar', () => {
     expect(toggleFiltersBar).toHaveBeenCalledWith(false);
   });
 
-  it('no filters', () => {
+  test('no filters', () => {
     renderWrapper(openedBarProps, stateWithoutNativeFilters);
 
     expect(screen.getByTestId(getTestId('clear-button'))).toBeDisabled();
     expect(screen.getByTestId(getTestId('apply-button'))).toBeDisabled();
   });
 
-  it('renders dividers', async () => {
+  test('renders dividers', async () => {
     const divider = {
       id: 'NATIVE_FILTER_DIVIDER-1',
       type: 'DIVIDER',
@@ -272,6 +276,13 @@ describe('FilterBar', () => {
     };
     const stateWithDivider = {
       ...stateWithoutNativeFilters,
+      dashboardInfo: {
+        ...stateWithoutNativeFilters.dashboardInfo,
+        metadata: {
+          ...stateWithoutNativeFilters.dashboardInfo.metadata,
+          native_filter_configuration: [divider],
+        },
+      },
       nativeFilters: {
         filters: {
           'NATIVE_FILTER_DIVIDER-1': divider,
@@ -295,7 +306,7 @@ describe('FilterBar', () => {
     expect(screen.getByTestId(getTestId('apply-button'))).toBeDisabled();
   });
 
-  it('create filter and apply it flow', async () => {
+  test('create filter and apply it flow', async () => {
     renderWrapper(openedBarProps, stateWithoutNativeFilters);
     expect(screen.getByTestId(getTestId('apply-button'))).toBeDisabled();
 
@@ -304,7 +315,7 @@ describe('FilterBar', () => {
     expect(screen.getByTestId(getTestId('apply-button'))).toBeDisabled();
   });
 
-  it('should render without errors with proper state setup', () => {
+  test('should render without errors with proper state setup', () => {
     const stateWithFilter = {
       ...stateWithoutNativeFilters,
       dashboardInfo: {
@@ -348,5 +359,119 @@ describe('FilterBar', () => {
 
     const { container } = renderWrapper(openedBarProps, stateWithFilter);
     expect(container).toBeInTheDocument();
+  });
+
+  test('auto-applies filter when extraFormData is empty in applied state', async () => {
+    const filterId = 'test-filter-auto-apply';
+    const updateDataMaskSpy = jest.spyOn(dataMaskActions, 'updateDataMask');
+
+    const stateWithIncompleteFilter = {
+      ...stateWithoutNativeFilters,
+      dashboardInfo: {
+        id: 1,
+        dash_edit_perm: true,
+      },
+      dataMask: {
+        [filterId]: {
+          id: filterId,
+          filterState: { value: ['value1', 'value2'] },
+          extraFormData: {},
+        },
+      },
+      nativeFilters: {
+        filters: {
+          [filterId]: {
+            id: filterId,
+            name: 'Test Filter',
+            filterType: 'filter_select',
+            targets: [{ datasetId: 1, column: { name: 'test_column' } }],
+            defaultDataMask: {
+              filterState: { value: ['value1', 'value2'] },
+              extraFormData: {},
+            },
+            controlValues: {
+              enableEmptyFilter: true,
+            },
+            cascadeParentIds: [],
+            scope: {
+              rootPath: ['ROOT_ID'],
+              excluded: [],
+            },
+            type: 'NATIVE_FILTER',
+            description: '',
+            chartsInScope: [],
+            tabsInScope: [],
+          },
+        },
+        filtersState: {},
+      },
+    };
+
+    renderWrapper(openedBarProps, stateWithIncompleteFilter);
+
+    await act(async () => {
+      jest.advanceTimersByTime(200);
+    });
+
+    expect(screen.getByTestId(getTestId('filter-icon'))).toBeInTheDocument();
+
+    updateDataMaskSpy.mockRestore();
+  });
+
+  test('renders correctly when filter has complete extraFormData', async () => {
+    const filterId = 'test-filter-complete';
+    const stateWithCompleteFilter = {
+      ...stateWithoutNativeFilters,
+      dashboardInfo: {
+        id: 1,
+        dash_edit_perm: true,
+      },
+      dataMask: {
+        [filterId]: {
+          id: filterId,
+          filterState: { value: ['value1'] },
+          extraFormData: {
+            filters: [{ col: 'test_column', op: 'IN', val: ['value1'] }],
+          },
+        },
+      },
+      nativeFilters: {
+        filters: {
+          [filterId]: {
+            id: filterId,
+            name: 'Test Filter',
+            filterType: 'filter_select',
+            targets: [{ datasetId: 1, column: { name: 'test_column' } }],
+            defaultDataMask: {
+              filterState: { value: ['value1'] },
+              extraFormData: {
+                filters: [{ col: 'test_column', op: 'IN', val: ['value1'] }],
+              },
+            },
+            controlValues: {
+              enableEmptyFilter: true,
+            },
+            cascadeParentIds: [],
+            scope: {
+              rootPath: ['ROOT_ID'],
+              excluded: [],
+            },
+            type: 'NATIVE_FILTER',
+            description: '',
+            chartsInScope: [],
+            tabsInScope: [],
+          },
+        },
+        filtersState: {},
+      },
+    };
+
+    renderWrapper(openedBarProps, stateWithCompleteFilter);
+
+    await act(async () => {
+      jest.advanceTimersByTime(100);
+    });
+
+    expect(screen.getByTestId(getTestId('filter-icon'))).toBeInTheDocument();
   });
 });

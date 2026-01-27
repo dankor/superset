@@ -104,6 +104,7 @@ import {
   PicCenterOutlined,
   PlusCircleOutlined,
   PlusOutlined,
+  ProfileOutlined,
   QuestionCircleOutlined,
   ReloadOutlined,
   RightOutlined,
@@ -113,6 +114,7 @@ import {
   ShareAltOutlined,
   StarOutlined,
   StarFilled,
+  StepForwardOutlined,
   StopOutlined,
   SunOutlined,
   SyncOutlined,
@@ -143,9 +145,12 @@ import {
   GoogleOutlined,
   DesktopOutlined,
   FormatPainterOutlined,
+  GroupOutlined,
   ExportOutlined,
   CompressOutlined,
   HistoryOutlined,
+  SlackOutlined,
+  ApiOutlined,
 } from '@ant-design/icons';
 import { FC } from 'react';
 import { IconType } from './types';
@@ -219,6 +224,7 @@ const AntdIcons = {
   FunctionOutlined,
   GithubOutlined,
   GoogleOutlined,
+  GroupOutlined,
   HighlightOutlined,
   InfoCircleOutlined,
   InfoCircleFilled,
@@ -242,6 +248,7 @@ const AntdIcons = {
   PicCenterOutlined,
   PlusCircleOutlined,
   PlusOutlined,
+  ProfileOutlined,
   ReloadOutlined,
   QuestionCircleOutlined,
   RightOutlined,
@@ -252,6 +259,7 @@ const AntdIcons = {
   SunOutlined,
   StarOutlined,
   StarFilled,
+  StepForwardOutlined,
   StopOutlined,
   SyncOutlined,
   TagOutlined,
@@ -281,6 +289,8 @@ const AntdIcons = {
   ExportOutlined,
   CompressOutlined,
   HistoryOutlined,
+  SlackOutlined,
+  ApiOutlined,
 } as const;
 
 type AntdIconNames = keyof typeof AntdIcons;

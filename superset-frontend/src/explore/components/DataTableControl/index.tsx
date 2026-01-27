@@ -17,16 +17,10 @@
  * under the License.
  */
 import { useMemo, useState, useEffect, useRef, RefObject } from 'react';
-import {
-  css,
-  GenericDataType,
-  getTimeFormatter,
-  safeHtmlSpan,
-  styled,
-  t,
-  TimeFormats,
-  useTheme,
-} from '@superset-ui/core';
+import { t } from '@apache-superset/core';
+import { getTimeFormatter, safeHtmlSpan, TimeFormats } from '@superset-ui/core';
+import { css, styled, useTheme } from '@apache-superset/core/ui';
+import { GenericDataType } from '@apache-superset/core/api/core';
 import { Column } from 'react-table';
 import { debounce } from 'lodash';
 import {

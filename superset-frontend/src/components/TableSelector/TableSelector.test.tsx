@@ -29,7 +29,7 @@ import {
 } from 'spec/helpers/testing-library';
 import { api } from 'src/hooks/apiResources/queryApi';
 import fetchMock from 'fetch-mock';
-import TableSelector, { TableSelectorMultiple } from '.';
+import TableSelector, { TableSelectorMultiple, TableOption } from '.';
 
 const createProps = (props = {}) => ({
   database: {
@@ -258,4 +258,76 @@ test('table multi select retain all the values selected', async () => {
   expect(selections).toHaveLength(2);
   expect(selections[0]).toHaveTextContent('table_b');
   expect(selections[1]).toHaveTextContent('table_c');
+});
+
+test('TableOption renders correct icons for different table types', () => {
+  // Test regular table
+  const tableTable = {
+    value: 'test_table',
+    type: 'table',
+    label: 'test_table',
+  };
+  const { container: tableContainer } = render(
+    <TableOption table={tableTable} />,
+  );
+  expect(tableContainer.querySelector('.anticon')).toBeInTheDocument();
+
+  // Test view
+  const viewTable = { value: 'test_view', type: 'view', label: 'test_view' };
+  const { container: viewContainer } = render(
+    <TableOption table={viewTable} />,
+  );
+  expect(viewContainer.querySelector('.anticon')).toBeInTheDocument();
+
+  // Test materialized view
+  const materializedViewTable = {
+    value: 'test_materialized_view',
+    type: 'materialized_view',
+    label: 'test_materialized_view',
+  };
+  const { container: mvContainer } = render(
+    <TableOption table={materializedViewTable} />,
+  );
+  expect(mvContainer.querySelector('.anticon')).toBeInTheDocument();
+});
+
+test('handles OAuth2 error by displaying ErrorMessageWithStackTrace instead of calling handleError', async () => {
+  const oauth2ErrorResponse = {
+    errors: [
+      {
+        error_type: 'OAUTH2_REDIRECT',
+        message: 'OAuth token needed.',
+        level: 'warning',
+        extra: {
+          url: 'https://oauth.example.com/authorize',
+          tab_id: 'test-tab-id',
+          redirect_uri: 'https://superset.example.com/oauth2/',
+        },
+      },
+    ],
+  };
+
+  fetchMock.get(catalogApiRoute, { result: [] });
+  fetchMock.get(schemaApiRoute, { result: ['test_schema'] });
+  fetchMock.get(tablesApiRoute, {
+    status: 500,
+    body: oauth2ErrorResponse,
+  });
+
+  const handleError = jest.fn();
+  const props = createProps({ handleError });
+  render(<TableSelector {...props} />, { useRedux: true, store });
+
+  // Wait for the API call to complete and error to be processed
+  await waitFor(
+    () => {
+      // The ErrorMessageWithStackTrace component should render when errors array is present
+      // handleError should NOT be called when errors array exists (OAuth2 pattern)
+      expect(handleError).not.toHaveBeenCalled();
+    },
+    { timeout: 10000 },
+  );
+
+  // Verify the error alert component is rendered
+  expect(screen.getByRole('alert')).toBeInTheDocument();
 });

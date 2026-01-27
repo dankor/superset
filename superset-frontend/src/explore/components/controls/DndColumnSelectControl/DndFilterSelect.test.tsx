@@ -21,11 +21,11 @@ import configureStore from 'redux-mock-store';
 
 import {
   ensureIsArray,
-  GenericDataType,
   QueryFormData,
+  QueryFormMetric,
 } from '@superset-ui/core';
+import { GenericDataType } from '@apache-superset/core/api/core';
 import { ColumnMeta } from '@superset-ui/chart-controls';
-
 import {
   fireEvent,
   render,
@@ -170,7 +170,7 @@ test('renders options with adhoc metric', async () => {
     setup({
       formData: {
         ...baseFormData,
-        metrics: [adhocMetric],
+        metrics: [adhocMetric as unknown as QueryFormMetric],
       },
     }),
     {
@@ -209,7 +209,7 @@ test('cannot drop a column that is not part of the simple column selection', () 
       {setup({
         formData: {
           ...baseFormData,
-          metrics: [adhocMetric],
+          metrics: [adhocMetric as unknown as QueryFormMetric],
         },
         columns: [{ column_name: 'order_date' }],
       })}
@@ -323,6 +323,7 @@ test('onChange is not called when close is clicked and canDelete is string, warn
   expect(await screen.findByText('Test warning')).toBeInTheDocument();
 });
 
+// eslint-disable-next-line no-restricted-globals -- TODO: Migrate from describe blocks
 describe('when disallow_adhoc_metrics is set', () => {
   test('can drop a column type from the simple column selection', () => {
     const adhocMetric = new AdhocMetric({
@@ -338,7 +339,7 @@ describe('when disallow_adhoc_metrics is set', () => {
         {setup({
           formData: {
             ...baseFormData,
-            metrics: [adhocMetric],
+            metrics: [adhocMetric as unknown as QueryFormMetric],
           },
           datasource: {
             ...PLACEHOLDER_DATASOURCE,
@@ -386,7 +387,7 @@ describe('when disallow_adhoc_metrics is set', () => {
         {setup({
           formData: {
             ...baseFormData,
-            metrics: [adhocMetric],
+            metrics: [adhocMetric as unknown as QueryFormMetric],
           },
           datasource: {
             ...PLACEHOLDER_DATASOURCE,

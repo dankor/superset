@@ -19,9 +19,10 @@
 import * as reactRedux from 'react-redux';
 import fetchMock from 'fetch-mock';
 import { render, screen, userEvent } from 'spec/helpers/testing-library';
-import setupExtensions from 'src/setup/setupExtensions';
+import setupCodeOverrides from 'src/setup/setupCodeOverrides';
 import { getExtensionsRegistry } from '@superset-ui/core';
 import { Menu } from './Menu';
+import * as getBootstrapData from 'src/utils/getBootstrapData';
 
 const dropdownItems = [
   {
@@ -238,6 +239,10 @@ const notanonProps = {
 };
 
 const useSelectorMock = jest.spyOn(reactRedux, 'useSelector');
+const staticAssetsPrefixMock = jest.spyOn(
+  getBootstrapData,
+  'staticAssetsPrefix',
+);
 
 fetchMock.get(
   'glob:*api/v1/database/?q=(filters:!((col:allow_file_upload,opr:upload_is_enabled,value:!t)))',
@@ -247,6 +252,8 @@ fetchMock.get(
 beforeEach(() => {
   // setup a DOM element as a render target
   useSelectorMock.mockClear();
+  // By default use empty static assets prefix
+  staticAssetsPrefixMock.mockReturnValue('');
 });
 
 test('should render', async () => {
@@ -272,23 +279,27 @@ test('should render the navigation', async () => {
   expect(await screen.findByRole('navigation')).toBeInTheDocument();
 });
 
-test('should render the brand', async () => {
-  useSelectorMock.mockReturnValue({ roles: user.roles });
-  const {
-    data: {
-      brand: { alt, icon },
-    },
-  } = mockedProps;
-  render(<Menu {...mockedProps} />, {
-    useRedux: true,
-    useQueryParams: true,
-    useRouter: true,
-    useTheme: true,
-  });
-  expect(await screen.findByAltText(alt)).toBeInTheDocument();
-  const image = screen.getByAltText(alt);
-  expect(image).toHaveAttribute('src', icon);
-});
+test.each(['', '/myapp'])(
+  'should render the brand, including app_root "%s"',
+  async app_root => {
+    staticAssetsPrefixMock.mockReturnValue(app_root);
+    useSelectorMock.mockReturnValue({ roles: user.roles });
+    const {
+      data: {
+        brand: { alt, icon },
+      },
+    } = mockedProps;
+    render(<Menu {...mockedProps} />, {
+      useRedux: true,
+      useQueryParams: true,
+      useRouter: true,
+      useTheme: true,
+    });
+    expect(await screen.findByAltText(alt)).toBeInTheDocument();
+    const image = screen.getByAltText(alt);
+    expect(image).toHaveAttribute('src', `${app_root}${icon}`);
+  },
+);
 
 test('should render the environment tag', async () => {
   useSelectorMock.mockReturnValue({ roles: user.roles });
@@ -424,7 +435,7 @@ test('should render the plus menu (+) when user is not anonymous', async () => {
     useRouter: true,
     useTheme: true,
   });
-  expect(await screen.findByTestId('new-dropdown')).toBeInTheDocument();
+  expect(await screen.findByTestId('new-dropdown-icon')).toBeInTheDocument();
 });
 
 test('should NOT render the plus menu (+) when user is anonymous', async () => {
@@ -492,13 +503,26 @@ test('should render the About section and version_string, sha or build_number wh
   });
   userEvent.hover(screen.getByText('Settings'));
   const about = await screen.findByText('About');
-  const version = await screen.findAllByText(`Version: ${version_string}`);
-  const sha = await screen.findAllByText(`SHA: ${version_sha}`);
-  const build = await screen.findAllByText(`Build: ${build_number}`);
+
+  // The version information is rendered as combined text in a single element
+  // Use getAllByText to get all matching elements and check the first one
+  const versionTexts = await screen.findAllByText(
+    (_, element) =>
+      element?.textContent?.includes(`Version: ${version_string}`) ?? false,
+  );
+  const shaTexts = await screen.findAllByText(
+    (_, element) =>
+      element?.textContent?.includes(`SHA: ${version_sha}`) ?? false,
+  );
+  const buildTexts = await screen.findAllByText(
+    (_, element) =>
+      element?.textContent?.includes(`Build: ${build_number}`) ?? false,
+  );
+
   expect(about).toBeInTheDocument();
-  expect(version[0]).toBeInTheDocument();
-  expect(sha[0]).toBeInTheDocument();
-  expect(build[0]).toBeInTheDocument();
+  expect(versionTexts[0]).toBeInTheDocument();
+  expect(shaTexts[0]).toBeInTheDocument();
+  expect(buildTexts[0]).toBeInTheDocument();
 });
 
 test('should render the Documentation link when available', async () => {
@@ -597,7 +621,7 @@ test('should render an extension component if one is supplied', async () => {
     <>navbar.right extension component</>
   ));
 
-  setupExtensions();
+  setupCodeOverrides();
 
   render(<Menu {...mockedProps} />, {
     useRouter: true,

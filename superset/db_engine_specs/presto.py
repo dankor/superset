@@ -38,12 +38,14 @@ from sqlalchemy.engine.base import Engine
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.result import Row as ResultRow
 from sqlalchemy.engine.url import URL
+from sqlalchemy.exc import NoSuchTableError
 from sqlalchemy.sql.expression import ColumnClause, Select
 
 from superset import cache_manager, db, is_feature_enabled
 from superset.common.db_query_status import QueryStatus
 from superset.constants import TimeGrain
-from superset.db_engine_specs.base import BaseEngineSpec
+from superset.db_engine_specs.base import BaseEngineSpec, DatabaseCategory
+from superset.db_engine_specs.exceptions import SupersetDBAPIProgrammingError
 from superset.errors import SupersetErrorType
 from superset.exceptions import SupersetTemplateException
 from superset.models.sql_lab import Query
@@ -894,6 +896,30 @@ class PrestoEngineSpec(PrestoBaseEngineSpec):
     engine_name = "Presto"
     allows_alias_to_source_column = False
 
+    metadata = {
+        "description": "Presto is a distributed SQL query engine for big data.",
+        "logo": "presto-og.png",
+        "homepage_url": "https://prestodb.io/",
+        "categories": [DatabaseCategory.QUERY_ENGINES, DatabaseCategory.OPEN_SOURCE],
+        "pypi_packages": ["pyhive"],
+        "install_instructions": 'pip install "apache-superset[presto]"',
+        "connection_string": "presto://{hostname}:{port}/{database}",
+        "default_port": 8080,
+        "parameters": {
+            "hostname": "Presto coordinator hostname",
+            "port": "Presto coordinator port (default 8080)",
+            "database": "Catalog name",
+        },
+        "drivers": [
+            {
+                "name": "PyHive",
+                "pypi_package": "pyhive",
+                "connection_string": "presto://{hostname}:{port}/{database}",
+                "is_recommended": True,
+            },
+        ],
+    }
+
     custom_errors: dict[Pattern[str], tuple[str, SupersetErrorType, dict[str, Any]]] = {
         COLUMN_DOES_NOT_EXIST_REGEX: (
             __(
@@ -1250,26 +1276,31 @@ class PrestoEngineSpec(PrestoBaseEngineSpec):
     ) -> dict[str, Any]:
         metadata = {}
 
-        if indexes := database.get_indexes(table):
-            col_names, latest_parts = cls.latest_partition(
-                database,
-                table,
-                show_first=True,
-                indexes=indexes,
-            )
-
-            if not latest_parts:
-                latest_parts = tuple([None] * len(col_names))
-
-            metadata["partitions"] = {
-                "cols": sorted(indexes[0].get("column_names", [])),
-                "latest": dict(zip(col_names, latest_parts, strict=False)),
-                "partitionQuery": cls._partition_query(
-                    table=table,
+        try:
+            if indexes := database.get_indexes(table):
+                col_names, latest_parts = cls.latest_partition(
+                    database,
+                    table,
+                    show_first=True,
                     indexes=indexes,
-                    database=database,
-                ),
-            }
+                )
+
+                if not latest_parts:
+                    latest_parts = tuple([None] * len(col_names))
+
+                metadata["partitions"] = {
+                    "cols": sorted(indexes[0].get("column_names", [])),
+                    "latest": dict(zip(col_names, latest_parts, strict=False)),
+                    "partitionQuery": cls._partition_query(
+                        table=table,
+                        indexes=indexes,
+                        database=database,
+                    ),
+                }
+        except NoSuchTableError as ex:
+            raise SupersetDBAPIProgrammingError(
+                "Table doesn't seem to exist on the database"
+            ) from ex
 
         metadata["view"] = cast(
             Any,
